@@ -1,4 +1,2 @@
 streamlit
-scikit-learn
-pdfplumber
-python-docx
+pypdf2
