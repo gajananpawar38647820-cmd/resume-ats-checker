@@ -1,31 +1,35 @@
 import streamlit as st
-import pandas as pd
-import matplotlib.pyplot as plt
-from analyzer import analyze_sentiment
+import pdfplumber
+import docx
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
-st.set_page_config(page_title="AI Sentiment Analyzer", page_icon="🤖")
-st.title("🤖 AI Driven Sentiment Analyzer")
-st.write("By Gajanan Pawar | Python Internship Project")
+st.set_page_config(page_title="Resume ATS Checker")
+st.title("📄 Resume ATS Checker - By Gajanan")
 
-text_input = st.text_area("Yethe tumcha review / comment taka:", "I love this product, amazing quality!")
+def extract_text(file):
+    if file.name.endswith('.pdf'):
+        with pdfplumber.open(file) as pdf:
+            return "".join([p.extract_text() or "" for p in pdf.pages])
+    elif file.name.endswith('.docx'):
+        doc = docx.Document(file)
+        return "\n".join([p.text for p in doc.paragraphs])
+    else:
+        return file.read().decode('utf-8', errors='ignore')
 
-if st.button("Analyze Sentiment"):
-    result = analyze_sentiment(text_input)
-    st.success(f"Result: {result['sentiment']}")
-    st.write(f"Polarity: {result['polarity']}")
-    
-    labels = ['Positive', 'Negative', 'Neutral']
-    sizes = [result['positive_%'], result['negative_%'], result['neutral_%']]
-    
-    fig, ax = plt.subplots()
-    ax.pie(sizes, labels=labels, autopct='%1.1f%%')
-    st.pyplot(fig)
-    st.write(f"Positive: {result['positive_%']}% | Negative: {result['negative_%']}% | Neutral: {result['neutral_%']}%")
+resume_file = st.file_uploader("1. Resume Upload Kara", type=['pdf','docx','txt'])
+jd_text = st.text_area("2. Job Description Paste Kara")
 
-st.markdown("---")
-st.write("Bulk Check sathi CSV upload kara")
-uploaded = st.file_uploader("Upload CSV", type=['csv'])
-if uploaded:
-    df = pd.read_csv(uploaded)
-    df['Sentiment'] = df.iloc[:,0].apply(lambda x: analyze_sentiment(str(x))['sentiment'])
-    st.write(df)
+if st.button("Check ATS Score"):
+    if resume_file and jd_text:
+        resume_text = extract_text(resume_file)
+        vectorizer = TfidfVectorizer().fit_transform([resume_text, jd_text])
+        score = cosine_similarity(vectorizer[0:1], vectorizer[1:2])[0][0] * 100
+        st.metric("Tumcha ATS Score", f"{score:.2f}%")
+        st.progress(int(score))
+        if score > 75:
+            st.success("Bhari Resume! ✅")
+        else:
+            st.warning("Improve kara ⚠️")
+    else:
+        st.error("Donhi taka!")
